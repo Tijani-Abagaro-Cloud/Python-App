@@ -1,24 +1,23 @@
-from flask import Flask
+from flask import Flask, jsonify, request
 
 app = Flask(__name__)
 
-@app.route("/")
-def home():
-    return "Hello from Flask!"
+@app.route("/", methods=["GET"])
+def root():
+    return "Hello from Flask Root!"
 
-@app.route("/<path:path>", methods=["GET", "POST", "PUT", "DELETE"])
-def catch_all(path):
-    return f"Catch-all path: {path}", 200
-
-
-@app.route("/hello")
+@app.route("/hello", methods=["GET"])
 def hello():
-    return "Welcome to the /hello endpoint"
+    return "Welcome to the /hello endpoint!"
 
-@app.before_request
-def log_request():
-    print(f"Incoming request path: {request.path}")
-
+@app.route("/<path:proxy_path>", methods=["GET", "POST", "PUT", "DELETE"])
+def catch_all(proxy_path):
+    return jsonify({
+        "message": f"Unhandled path: /{proxy_path}",
+        "method": request.method,
+        "headers": dict(request.headers),
+        "query": request.args
+    }), 200
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=80)

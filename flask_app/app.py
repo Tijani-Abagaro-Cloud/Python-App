@@ -15,5 +15,10 @@ def catch_all(path):
 def hello():
     return "Welcome to the /hello endpoint"
 
+@app.before_request
+def log_request():
+    print(f"Incoming request path: {request.path}")
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=80)

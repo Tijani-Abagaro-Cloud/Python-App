@@ -1,0 +1,41 @@
+name: Deploy Flask App to ECS (OIDC Role-Based)
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: arn:aws:iam::861079279572:role/lf-api-deploy
+          aws-region: us-east-2
+
+      - name: Log in to Amazon ECR
+        run: |
+          aws ecr get-login-password | docker login --username AWS --password-stdin 861079279572.dkr.ecr.us-east-2.amazonaws.com
+
+      - name: Build, Tag, and Push Docker image
+        run: |
+          docker build -t lf-enterprise-api-dev ./flask_app
+          docker tag lf-enterprise-api-dev:latest 861079279572.dkr.ecr.us-east-2.amazonaws.com/lf-enterprise-api-dev:latest
+          docker push 861079279572.dkr.ecr.us-east-2.amazonaws.com/lf-enterprise-api-dev:latest
+
+      - name: Deploy new image to ECS
+        run: |
+          aws ecs update-service \
+            --cluster lf-enterprise-api-cluster-dev \
+            --service lf-enterprise-api-task-dev-service-7fmhk9xx \
+            --force-new-deployment \
+            --region us-east-2

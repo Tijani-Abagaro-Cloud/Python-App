@@ -67,12 +67,14 @@ resource "aws_api_gateway_deployment" "api_deploy" {
 }
 
 resource "aws_api_gateway_stage" "dev" {
-  lifecycle {
-    create_before_destroy = true
-    ignore_changes        = [deployment_id]
-  }
-
   rest_api_id   = var.rest_api_id
   stage_name    = "dev"
   deployment_id = aws_api_gateway_deployment.api_deploy.id
+
+  lifecycle {
+    ignore_changes = [deployment_id]  # Prevent recreation on every deploy
+    prevent_destroy = true            # Protect existing stage from being deleted
+  }
 }
+
+

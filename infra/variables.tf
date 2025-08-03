@@ -1,31 +1,25 @@
-variable "region" {
-  type    = string
-  default = "us-east-2"
-}
-
-variable "vpc_link_id" {
-  type        = string
-  description = "ID of the existing API Gateway VPC Link"
-}
-
 variable "rest_api_id" {
+  description = "ID of the existing API Gateway REST API"
   type        = string
-  description = "ID of the existing REST API"
 }
 
 variable "parent_resource_id" {
+  description = "Parent resource ID, usually the root '/' resource"
   type        = string
-  description = "ID of the root or parent resource in the REST API"
-}
-
-variable "nlb_name" {
-  type        = string
-  description = "Name of the internal NLB to look up"
-  default     = "if-enterprise-nlb-dev"
 }
 
 variable "hello_resource_id" {
+  description = "If /hello path already exists, provide its resource ID to prevent conflict"
   type        = string
-  description = "Use this to reference existing /hello resource if already created"
   default     = ""
+}
+
+variable "vpc_link_id" {
+  description = "ID of the VPC Link to connect API Gateway with internal NLB"
+  type        = string
+}
+
+variable "nlb_name" {
+  description = "Name of the internal Network Load Balancer to connect via VPC Link"
+  type        = string
 }

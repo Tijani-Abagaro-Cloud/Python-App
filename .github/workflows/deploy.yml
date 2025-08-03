@@ -50,27 +50,12 @@ jobs:
         working-directory: infra
         run: terraform init
 
-      - name: Terraform Plan
+      - name: Terraform Plan (Scoped to API Gateway only)
         if: contains(github.event.head_commit.message, '[infra]')
         working-directory: infra
-        run: terraform plan \
-          -target=aws_api_gateway_method.hello_get \
-          -target=aws_api_gateway_integration.hello_integration \
-          -target=aws_api_gateway_method_response.hello_response \
-          -target=aws_api_gateway_integration_response.hello_integration_response \
-          -target=aws_api_gateway_deployment.api_deploy \
-          -target=aws_api_gateway_stage.dev \
-          -var-file="terraform.tfvars"
+        run: terraform plan -target=aws_api_gateway_method.hello_get -target=aws_api_gateway_integration.hello_integration -target=aws_api_gateway_method_response.hello_response -target=aws_api_gateway_integration_response.hello_integration_response -target=aws_api_gateway_deployment.api_deploy -target=aws_api_gateway_stage.dev -var-file="terraform.tfvars"
 
       - name: Terraform Apply (Scoped to API Gateway only)
         if: contains(github.event.head_commit.message, '[infra]')
         working-directory: infra
-        run: terraform apply \
-          -target=aws_api_gateway_method.hello_get \
-          -target=aws_api_gateway_integration.hello_integration \
-          -target=aws_api_gateway_method_response.hello_response \
-          -target=aws_api_gateway_integration_response.hello_integration_response \
-          -target=aws_api_gateway_deployment.api_deploy \
-          -target=aws_api_gateway_stage.dev \
-          -auto-approve \
-          -var-file="terraform.tfvars"
+        run: terraform apply -target=aws_api_gateway_method.hello_get -target=aws_api_gateway_integration.hello_integration -target=aws_api_gateway_method_response.hello_response -target=aws_api_gateway_integration_response.hello_integration_response -target=aws_api_gateway_deployment.api_deploy -target=aws_api_gateway_stage.dev -auto-approve -var-file="terraform.tfvars"

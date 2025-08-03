@@ -27,6 +27,24 @@ resource "aws_api_gateway_method" "hello_get" {
   http_method   = "GET"
   authorization = "NONE"
 }
+resource "aws_lb_target_group" "fargate_tg" {
+  name        = "lf-enterprise-api-dev-tg"
+  port        = 80
+  protocol    = "HTTP"
+  target_type = "ip"
+  vpc_id      = var.vpc_id
+
+  health_check {
+    path                = "/hello"
+    protocol            = "HTTP"
+    matcher             = "200"
+    interval            = 30
+    timeout             = 5
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+  }
+}
+
 
 resource "aws_lb_listener" "http" {
   load_balancer_arn = data.aws_lb.nlb.arn

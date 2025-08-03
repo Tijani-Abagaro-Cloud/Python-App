@@ -8,7 +8,13 @@ resource "aws_api_gateway_resource" "hello" {
   rest_api_id = var.rest_api_id
   parent_id   = var.parent_resource_id
   path_part   = "hello"
+
+  lifecycle {
+    prevent_destroy = true
+    ignore_changes  = [path_part]
+  }
 }
+
 
 # Use either existing or newly created /hello resource
 locals {

@@ -47,6 +47,7 @@ resource "aws_api_gateway_integration" "hello_integration" {
   uri                     = "http://${data.aws_lb.nlb.dns_name}/hello"
   connection_type         = "VPC_LINK"
   connection_id           = aws_api_gateway_vpc_link.vpc_link.id
+  timeout_milliseconds    = 29000 
 
   depends_on = [aws_api_gateway_vpc_link.vpc_link]
 }

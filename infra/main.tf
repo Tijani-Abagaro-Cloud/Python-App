@@ -69,15 +69,17 @@ resource "aws_api_gateway_deployment" "api_deploy" {
   }
 }
 
-resource "aws_api_gateway_stage" "dev" {
-  rest_api_id   = var.rest_api_id
-  stage_name    = "dev"
-  deployment_id = aws_api_gateway_deployment.api_deploy.id
- 
+resource "aws_api_gateway_deployment" "api_deploy" {
+  rest_api_id = var.rest_api_id
+
+  depends_on = [
+    aws_api_gateway_method.hello_get,
+    aws_api_gateway_integration.hello_integration
+  ]
 
   lifecycle {
-    prevent_destroy = true
-    ignore_changes  = [deployment_id]
+    create_before_destroy = true
   }
 }
+
 

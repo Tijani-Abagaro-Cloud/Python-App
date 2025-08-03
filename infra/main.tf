@@ -61,13 +61,6 @@ resource "aws_api_gateway_integration_response" "hello_integration_response" {
   }
 }
 
-resource "aws_api_gateway_deployment" "api_deploy" {
-  rest_api_id = var.rest_api_id
-
-  lifecycle {
-    create_before_destroy = true
-  }
-}
 
 resource "aws_api_gateway_deployment" "api_deploy" {
   rest_api_id = var.rest_api_id

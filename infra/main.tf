@@ -1,7 +1,3 @@
-provider "aws" {
-  region = var.region
-}
-
 data "aws_lb" "nlb" {
   name = var.nlb_name
 }

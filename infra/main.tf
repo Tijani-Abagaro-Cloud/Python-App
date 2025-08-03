@@ -39,6 +39,11 @@ resource "aws_api_gateway_integration_response" "hello_integration_response" {
 
 resource "aws_api_gateway_deployment" "api_deploy" {
   rest_api_id = var.rest_api_id
-  depends_on = [aws_api_gateway_integration.hello_integration]
-  stage_name = "dev"
+  depends_on  = [aws_api_gateway_integration.hello_integration]
+}
+
+resource "aws_api_gateway_stage" "dev" {
+  rest_api_id    = var.rest_api_id
+  stage_name     = "dev"
+  deployment_id  = aws_api_gateway_deployment.api_deploy.id
 }

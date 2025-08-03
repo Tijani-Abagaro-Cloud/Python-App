@@ -1,4 +1,5 @@
 # Dynamically look up the internal NLB DNS name
+#and 
 data "aws_lb" "nlb" {
   name = var.nlb_name
 }

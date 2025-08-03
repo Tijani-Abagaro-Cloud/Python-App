@@ -92,7 +92,7 @@ resource "aws_api_gateway_deployment" "api_deploy" {
 # Stage for dev
 resource "aws_api_gateway_stage" "dev" {
   stage_name    = var.stage
-  rest_api_id   = aws_api_gateway_rest_api.rest_api.id
+  # rest_api_id   = aws_api_gateway_rest_api.rest_api.id
   deployment_id = aws_api_gateway_deployment.api_deploy.id
 }
 

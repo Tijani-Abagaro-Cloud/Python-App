@@ -73,7 +73,7 @@ resource "aws_api_gateway_stage" "dev" {
   rest_api_id   = var.rest_api_id
   stage_name    = "dev"
   deployment_id = aws_api_gateway_deployment.api_deploy.id
-  web_acl_arn   = var.web_acl_arn
+ 
 
   lifecycle {
     prevent_destroy = true

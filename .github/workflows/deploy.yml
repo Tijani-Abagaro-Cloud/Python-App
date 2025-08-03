@@ -39,3 +39,19 @@ jobs:
             --service lf-enterprise-api-task-dev-service-7fmhk9xx \
             --force-new-deployment \
             --region us-east-2
+
+      # ✅ Terraform Provisioning for API Gateway Integration
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v1
+
+      - name: Terraform Init
+        working-directory: infra
+        run: terraform init
+
+      - name: Terraform Plan
+        working-directory: infra
+        run: terraform plan -var-file="terraform.tfvars"
+
+      - name: Terraform Apply
+        working-directory: infra
+        run: terraform apply -auto-approve -var-file="terraform.tfvars"

@@ -1,22 +1,20 @@
-variable "region" {}
-
-variable "rest_api_id" {}
-
-variable "parent_resource_id" {}
-
-variable "hello_resource_id" {
-  default = ""
+variable "region" {
+  description = "AWS region"
+  type        = string
+  default     = "us-east-2"
 }
 
-variable "vpc_link_id" {}
-
-variable "nlb_name" {}
-
-variable "web_acl_arn" {
-  default = null
+variable "nlb_name" {
+  description = "Name of the internal NLB"
+  type        = string
 }
 
-variable "vpc_id" {
-  description = "The ID of the VPC where resources will be deployed"
+variable "rest_api_id" {
+  description = "ID of the existing REST API Gateway"
+  type        = string
+}
+
+variable "parent_resource_id" {
+  description = "ID of the parent resource (usually root /)"
   type        = string
 }

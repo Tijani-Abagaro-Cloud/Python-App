@@ -28,18 +28,31 @@ resource "aws_api_gateway_method" "hello_get" {
   authorization = "NONE"
 }
 
-resource "aws_api_gateway_integration" "hello_integration" {
-  count                    = local.create_hello_resources ? 1 : 0
-  rest_api_id              = var.rest_api_id
-  resource_id              = local.hello_resource_id
-  http_method              = aws_api_gateway_method.hello_get[0].http_method
-  integration_http_method  = "GET"
-  type                     = "HTTP"
-  uri                      = "http://${data.aws_lb.nlb.dns_name}/hello"
-  connection_type          = "VPC_LINK"
-  connection_id            = var.vpc_link_id
-  timeout_milliseconds     = 29000
+resource "aws_lb_listener" "http" {
+  load_balancer_arn = data.aws_lb.nlb.arn
+  port              = 80
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.fargate_tg.arn
+  }
 }
+
+
+resource "aws_api_gateway_integration" "hello_integration" {
+  count                   = local.create_hello_resources ? 1 : 0
+  rest_api_id             = var.rest_api_id
+  resource_id             = local.hello_resource_id
+  http_method             = aws_api_gateway_method.hello_get[0].http_method
+  integration_http_method = "GET"
+  type                    = "HTTP"
+  uri                     = aws_lb_listener.http.arn  # ✅ Listener ARN used here
+  connection_type         = "VPC_LINK"
+  connection_id           = var.vpc_link_id
+  timeout_milliseconds    = 29000
+}
+
 
 resource "aws_api_gateway_method_response" "hello_response" {
   count         = local.create_hello_resources ? 1 : 0

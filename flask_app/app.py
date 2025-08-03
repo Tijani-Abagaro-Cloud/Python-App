@@ -1,14 +1,14 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, Response
 
 app = Flask(__name__)
 
 @app.route("/")
 def home():
-    return "Hello from Flask!"
+    return Response("Hello from Flask!", status=200, mimetype="text/plain")
 
 @app.route("/hello")
 def hello():
-    return "Welcome to the /hello endpoint"
+    return Response("Welcome to the /hello endpoint", status=200, mimetype="text/plain")
 
 @app.route("/status")
 def status():

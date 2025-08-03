@@ -1,7 +1,6 @@
-
 region             = "us-east-2"
 vpc_link_id        = "dun05z"
 rest_api_id        = "zvi27nd948"
 parent_resource_id = "9zss9qf83h"
 nlb_name           = "if-enterprise-nlb-dev"
-hello_resource_id  = ""
+hello_resource_id  = ""  # Leave blank to create /hello if not already present

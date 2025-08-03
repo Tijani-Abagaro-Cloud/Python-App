@@ -1,39 +1,18 @@
-# ----------------------------------------
-# main.tf (CI/CD-safe and auto-discover /hello)
-# ----------------------------------------
-
-# Lookup the internal NLB
 data "aws_lb" "nlb" {
   name = var.nlb_name
 }
 
-# Lookup existing API Gateway resources
-data "aws_api_gateway_resources" "all" {
-  rest_api_id = var.rest_api_id
-}
-
-# Extract existing /hello resource ID if it exists
-locals {
-  existing_hello_id = try([
-    for r in data.aws_api_gateway_resources.all.items :
-    r.id if r.path == "/hello"
-  ][0], null)
-}
-
-# Conditionally create /hello only if it doesn't already exist
+# Create /hello path only if not provided
 resource "aws_api_gateway_resource" "hello" {
-  count       = local.existing_hello_id != null ? 0 : 1
+  count       = var.hello_resource_id == "" ? 1 : 0
   rest_api_id = var.rest_api_id
   parent_id   = var.parent_resource_id
   path_part   = "hello"
 }
 
-# Dynamically assign the correct /hello resource ID
+# Use either existing or newly created /hello resource
 locals {
-  hello_resource_id = coalesce(
-    local.existing_hello_id,
-    one(aws_api_gateway_resource.hello[*].id)
-  )
+  hello_resource_id = var.hello_resource_id != "" ? var.hello_resource_id : aws_api_gateway_resource.hello[0].id
 }
 
 resource "aws_api_gateway_method" "hello_get" {
@@ -82,7 +61,7 @@ resource "aws_api_gateway_deployment" "api_deploy" {
 resource "aws_api_gateway_stage" "dev" {
   lifecycle {
     create_before_destroy = true
-    ignore_changes        = [deployment_id]
+    ignore_changes = [deployment_id]
   }
 
   rest_api_id   = var.rest_api_id

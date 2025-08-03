@@ -23,3 +23,7 @@ variable "nlb_name" {
   description = "Name of the internal Network Load Balancer to connect via VPC Link"
   type        = string
 }
+variable "region" {
+  description = "AWS region to deploy to"
+  type        = string
+}

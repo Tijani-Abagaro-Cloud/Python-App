@@ -44,13 +44,17 @@ resource "aws_api_gateway_integration" "hello_integration" {
   http_method             = aws_api_gateway_method.hello_get.http_method
   integration_http_method = "GET"
   type                    = "HTTP_PROXY"
-  uri                     = "http://${data.aws_lb.nlb.dns_name}:80"
+  uri                     = "http://${data.aws_lb.nlb.dns_name}:80" # NO /hello in URI
   connection_type         = "VPC_LINK"
   connection_id           = aws_api_gateway_vpc_link.vpc_link.id
   timeout_milliseconds    = 29000
+  passthrough_behavior    = "WHEN_NO_MATCH"
 
-  depends_on = [aws_api_gateway_vpc_link.vpc_link]
+  depends_on = [
+    aws_api_gateway_vpc_link.vpc_link
+  ]
 }
+
 
 # Method response for GET /hello
 resource "aws_api_gateway_method_response" "hello_response" {

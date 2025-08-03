@@ -2,22 +2,23 @@ provider "aws" {
   region = "us-east-2"
 }
 
-# Lookup NLB dynamically
+# Lookup NLB by name
 data "aws_lb" "nlb" {
   name = var.nlb_name
 }
 
 # Create REST API Gateway
 resource "aws_api_gateway_rest_api" "rest_api" {
-  name = "lf-enterprise-api-gw-dev"
+  name        = var.api_name
+  description = "Public REST API with VPC Link to private NLB"
   endpoint_configuration {
     types = ["REGIONAL"]
   }
 }
 
-# Create VPC Link
+# Create VPC Link to internal NLB
 resource "aws_api_gateway_vpc_link" "vpc_link" {
-  name        = "lf-enterprise-api-dev-vpclink"
+  name        = var.vpc_link_name
   target_arns = [data.aws_lb.nlb.arn]
 }
 
@@ -28,7 +29,7 @@ resource "aws_api_gateway_resource" "hello" {
   path_part   = "hello"
 }
 
-# Create GET method
+# Create GET method for /hello
 resource "aws_api_gateway_method" "hello_get" {
   rest_api_id   = aws_api_gateway_rest_api.rest_api.id
   resource_id   = aws_api_gateway_resource.hello.id
@@ -36,7 +37,7 @@ resource "aws_api_gateway_method" "hello_get" {
   authorization = "NONE"
 }
 
-# Integration with NLB via VPC Link
+# Integration with internal NLB via VPC Link
 resource "aws_api_gateway_integration" "hello_integration" {
   rest_api_id             = aws_api_gateway_rest_api.rest_api.id
   resource_id             = aws_api_gateway_resource.hello.id
@@ -46,13 +47,12 @@ resource "aws_api_gateway_integration" "hello_integration" {
   uri                     = "http://${data.aws_lb.nlb.dns_name}/hello"
   connection_type         = "VPC_LINK"
   connection_id           = aws_api_gateway_vpc_link.vpc_link.id
+  timeout_milliseconds    = 29000
 
-  depends_on = [
-    aws_api_gateway_vpc_link.vpc_link
-  ]
+  depends_on = [aws_api_gateway_vpc_link.vpc_link]
 }
 
-# Method response
+# Method response for GET /hello
 resource "aws_api_gateway_method_response" "hello_response" {
   rest_api_id = aws_api_gateway_rest_api.rest_api.id
   resource_id = aws_api_gateway_resource.hello.id
@@ -60,30 +60,37 @@ resource "aws_api_gateway_method_response" "hello_response" {
   status_code = "200"
 }
 
-# Integration response ( key fix: add depends_on!)
+# Integration response
 resource "aws_api_gateway_integration_response" "hello_integration_response" {
   rest_api_id = aws_api_gateway_rest_api.rest_api.id
   resource_id = aws_api_gateway_resource.hello.id
   http_method = aws_api_gateway_method.hello_get.http_method
   status_code = aws_api_gateway_method_response.hello_response.status_code
 
-  depends_on = [
-    aws_api_gateway_integration.hello_integration
-  ]
+  depends_on = [aws_api_gateway_integration.hello_integration]
 }
 
-# Deploy the API 
+# Deploy API
 resource "aws_api_gateway_deployment" "api_deploy" {
   rest_api_id = aws_api_gateway_rest_api.rest_api.id
+
+  triggers = {
+    redeploy = timestamp()
+  }
 
   depends_on = [
     aws_api_gateway_integration_response.hello_integration_response
   ]
 }
 
-# Create stage
+# Stage for dev
 resource "aws_api_gateway_stage" "dev" {
-  stage_name    = "dev"
+  stage_name    = var.stage
   rest_api_id   = aws_api_gateway_rest_api.rest_api.id
   deployment_id = aws_api_gateway_deployment.api_deploy.id
+}
+
+output "api_gateway_invoke_url" {
+  description = "Invoke URL for /hello endpoint"
+  value       = "https://${aws_api_gateway_rest_api.rest_api.id}.execute-api.${var.region}.amazonaws.com/${var.stage}/hello"
 }

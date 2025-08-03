@@ -68,8 +68,13 @@ resource "aws_api_gateway_integration_response" "hello_integration_response" {
   http_method = aws_api_gateway_method.hello_get.http_method
   status_code = aws_api_gateway_method_response.hello_response.status_code
 
+  response_templates = {
+    "application/json" = "$input.body"
+  }
+
   depends_on = [aws_api_gateway_integration.hello_integration]
 }
+
 
 # Deploy API
 resource "aws_api_gateway_deployment" "api_deploy" {

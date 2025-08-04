@@ -23,9 +23,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set Git SHA as Image Tag
-        run: echo "IMAGE_TAG=${GITHUB_SHA}" >> $GITHUB_ENV
-
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -38,47 +35,47 @@ jobs:
 
       - name: Build, Tag, and Push Docker Image
         run: |
-          docker build -t lf-enterprise-api-dev:${IMAGE_TAG} ./flask_app
-          docker tag lf-enterprise-api-dev:${IMAGE_TAG} $ECR_REPO:${IMAGE_TAG}
-          docker push $ECR_REPO:${IMAGE_TAG}
+          docker build -t lf-enterprise-api-dev ./flask_app
+          docker tag lf-enterprise-api-dev:latest $ECR_REPO:latest
+          docker push $ECR_REPO:latest
 
-      - name: Fetch Current Task Definition
+      - name: Get current ECS task definition
+        id: task-def
         run: |
-          aws ecs describe-task-definition --task-definition $TASK_DEF_NAME \
+          aws ecs describe-task-definition \
+            --task-definition $TASK_DEF_NAME \
             --region $AWS_REGION \
             --query "taskDefinition" > task-def.json
 
-      - name: Create Updated Task Definition with New Image
+      - name: Create new task definition revision with updated image
         run: |
           cat task-def.json | \
           jq 'del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' | \
-          jq --arg IMAGE "$ECR_REPO:${IMAGE_TAG}" \
-             '.containerDefinitions[0].image = $IMAGE' > new-task-def.json
+          jq '.containerDefinitions[0].image = env.ECR_REPO + ":latest"' > new-task-def.json
 
-      - name: Register New Task Definition
+      - name: Register new task definition revision
         run: |
           aws ecs register-task-definition \
             --cli-input-json file://new-task-def.json \
             --region $AWS_REGION
 
-      - name: Get New Task Definition Revision
-        id: task-def-rev
+      - name: Get new revision number
+        id: new-rev
         run: |
-          REVISION=$(aws ecs describe-task-definition \
-            --task-definition $TASK_DEF_NAME \
+          REV=$(aws ecs describe-task-definition --task-definition $TASK_DEF_NAME \
             --region $AWS_REGION \
             --query "taskDefinition.revision" --output text)
-          echo "REVISION=$REVISION" >> $GITHUB_OUTPUT
+          echo "revision=$REV" >> $GITHUB_OUTPUT
 
-      - name: Update ECS Service to Use New Task Definition
+      - name: Update ECS service to use new revision
         run: |
           aws ecs update-service \
             --cluster $CLUSTER_NAME \
             --service $SERVICE_NAME \
-            --task-definition $TASK_DEF_NAME:${{ steps.task-def-rev.outputs.REVISION }} \
+            --task-definition $TASK_DEF_NAME:${{ steps.new-rev.outputs.revision }} \
             --region $AWS_REGION
 
-      # Terraform conditional block
+      # Terraform block (optional, runs only if "[infra]" is in the commit message)
       - name: Setup Terraform
         if: contains(github.event.head_commit.message, '[infra]')
         uses: hashicorp/setup-terraform@v1

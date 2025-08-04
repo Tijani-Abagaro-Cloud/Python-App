@@ -4,7 +4,7 @@ app = Flask(__name__)
 
 @app.route("/hello")
 def hello():
-    response = make_response(jsonify(message="Welcome to the /hello endpoint"), 200)
+    response = make_response(jsonify(message="Welcome to the AOM /hello endpoint"), 200)
     response.headers["Content-Type"] = "application/json"
     return response
 

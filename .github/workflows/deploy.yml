@@ -13,7 +13,7 @@ env:
   ECR_REPO: 861079279572.dkr.ecr.us-east-2.amazonaws.com/lf-enterprise-api-dev
   CLUSTER_NAME: lf-enterprise-api-cluster-dev
   SERVICE_NAME: lf-enterprise-api-task-dev-service-7fmhk9xx
-  TASK_DEF_NAME: lf-enterprise-api-task-def-dev
+  TASK_DEF_NAME: lf-enterprise-api-task-dev  # 
 
 jobs:
   deploy:
@@ -75,7 +75,118 @@ jobs:
             --task-definition $TASK_DEF_NAME:${{ steps.new-rev.outputs.revision }} \
             --region $AWS_REGION
 
-      # Terraform block (optional, runs only if "[infra]" is in the commit message)
+      # Optional Terraform block (runs only if "[infra]" is in the commit message)
+      - name: Setup Terraform
+        if: contains(github.event.head_commit.message, '[infra]')
+        uses: hashicorp/setup-terraform@v1
+
+      - name: Terraform Init
+        if: contains(github.event.head_commit.message, '[infra]')
+        working-directory: infra
+        run: terraform init
+
+      - name: Terraform Plan (Scoped to API Gateway only)
+        if: contains(github.event.head_commit.message, '[infra]')
+        working-directory: infra
+        run: terraform plan \
+          -target=aws_api_gateway_method.hello_get \
+          -target=aws_api_gateway_integration.hello_integration \
+          -target=aws_api_gateway_method_response.hello_response \
+          -target=aws_api_gateway_integration_response.hello_integration_response \
+          -target=aws_api_gateway_deployment.api_deploy \
+          -target=aws_api_gateway_stage.dev \
+          -var-file="terraform.tfvars"
+
+      - name: Terraform Apply (Scoped to API Gateway only)
+        if: contains(github.event.head_commit.message, '[infra]')
+        working-directory: infra
+        run: terraform apply \
+          -target=aws_api_gateway_method.hello_get \
+          -target=aws_api_gateway_integration.hello_integration \
+          -target=aws_api_gateway_method_response.hello_response \
+          -target=aws_api_gateway_integration_response.hello_integration_response \
+          -target=aws_api_gateway_deployment.api_deploy \
+          -target=aws_api_gateway_stage.dev \
+          -auto-approve \
+          -var-file="terraform.tfvars"
+name: Deploy Flask App to ECS (OIDC Role-Based)
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-2
+  ECR_REPO: 861079279572.dkr.ecr.us-east-2.amazonaws.com/lf-enterprise-api-dev
+  CLUSTER_NAME: lf-enterprise-api-cluster-dev
+  SERVICE_NAME: lf-enterprise-api-task-dev-service-7fmhk9xx
+  TASK_DEF_NAME: lf-enterprise-api-task-dev  # ✅ FIXED
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: arn:aws:iam::861079279572:role/lf-api-deploy
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        run: |
+          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPO
+
+      - name: Build, Tag, and Push Docker Image
+        run: |
+          docker build -t lf-enterprise-api-dev ./flask_app
+          docker tag lf-enterprise-api-dev:latest $ECR_REPO:latest
+          docker push $ECR_REPO:latest
+
+      - name: Get current ECS task definition
+        id: task-def
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition $TASK_DEF_NAME \
+            --region $AWS_REGION \
+            --query "taskDefinition" > task-def.json
+
+      - name: Create new task definition revision with updated image
+        run: |
+          cat task-def.json | \
+          jq 'del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' | \
+          jq '.containerDefinitions[0].image = env.ECR_REPO + ":latest"' > new-task-def.json
+
+      - name: Register new task definition revision
+        run: |
+          aws ecs register-task-definition \
+            --cli-input-json file://new-task-def.json \
+            --region $AWS_REGION
+
+      - name: Get new revision number
+        id: new-rev
+        run: |
+          REV=$(aws ecs describe-task-definition --task-definition $TASK_DEF_NAME \
+            --region $AWS_REGION \
+            --query "taskDefinition.revision" --output text)
+          echo "revision=$REV" >> $GITHUB_OUTPUT
+
+      - name: Update ECS service to use new revision
+        run: |
+          aws ecs update-service \
+            --cluster $CLUSTER_NAME \
+            --service $SERVICE_NAME \
+            --task-definition $TASK_DEF_NAME:${{ steps.new-rev.outputs.revision }} \
+            --region $AWS_REGION
+
+      # Optional Terraform block (runs only if "[infra]" is in the commit message)
       - name: Setup Terraform
         if: contains(github.event.head_commit.message, '[infra]')
         uses: hashicorp/setup-terraform@v1

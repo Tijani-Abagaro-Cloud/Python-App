@@ -8,6 +8,13 @@ permissions:
   id-token: write
   contents: read
 
+env:
+  AWS_REGION: us-east-2
+  ECR_REPO: 861079279572.dkr.ecr.us-east-2.amazonaws.com/lf-enterprise-api-dev
+  CLUSTER_NAME: lf-enterprise-api-cluster-dev
+  SERVICE_NAME: lf-enterprise-api-task-dev-service-7fmhk9xx
+  TASK_DEF_NAME: lf-enterprise-api-task-def-dev
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -16,31 +23,62 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      - name: Set Git SHA as Image Tag
+        run: echo "IMAGE_TAG=${GITHUB_SHA}" >> $GITHUB_ENV
+
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v2
         with:
           role-to-assume: arn:aws:iam::861079279572:role/lf-api-deploy
-          aws-region: us-east-2
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Log in to Amazon ECR
         run: |
-          aws ecr get-login-password | docker login --username AWS --password-stdin 861079279572.dkr.ecr.us-east-2.amazonaws.com
+          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPO
 
-      - name: Build, Tag, and Push Docker image
+      - name: Build, Tag, and Push Docker Image
         run: |
-          docker build -t lf-enterprise-api-dev ./flask_app
-          docker tag lf-enterprise-api-dev:latest 861079279572.dkr.ecr.us-east-2.amazonaws.com/lf-enterprise-api-dev:latest
-          docker push 861079279572.dkr.ecr.us-east-2.amazonaws.com/lf-enterprise-api-dev:latest
+          docker build -t lf-enterprise-api-dev:${IMAGE_TAG} ./flask_app
+          docker tag lf-enterprise-api-dev:${IMAGE_TAG} $ECR_REPO:${IMAGE_TAG}
+          docker push $ECR_REPO:${IMAGE_TAG}
 
-      - name: Deploy new image to ECS
+      - name: Fetch Current Task Definition
+        run: |
+          aws ecs describe-task-definition --task-definition $TASK_DEF_NAME \
+            --region $AWS_REGION \
+            --query "taskDefinition" > task-def.json
+
+      - name: Create Updated Task Definition with New Image
+        run: |
+          cat task-def.json | \
+          jq 'del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' | \
+          jq --arg IMAGE "$ECR_REPO:${IMAGE_TAG}" \
+             '.containerDefinitions[0].image = $IMAGE' > new-task-def.json
+
+      - name: Register New Task Definition
+        run: |
+          aws ecs register-task-definition \
+            --cli-input-json file://new-task-def.json \
+            --region $AWS_REGION
+
+      - name: Get New Task Definition Revision
+        id: task-def-rev
+        run: |
+          REVISION=$(aws ecs describe-task-definition \
+            --task-definition $TASK_DEF_NAME \
+            --region $AWS_REGION \
+            --query "taskDefinition.revision" --output text)
+          echo "REVISION=$REVISION" >> $GITHUB_OUTPUT
+
+      - name: Update ECS Service to Use New Task Definition
         run: |
           aws ecs update-service \
-            --cluster lf-enterprise-api-cluster-dev \
-            --service lf-enterprise-api-task-dev-service-7fmhk9xx \
-            --force-new-deployment \
-            --region us-east-2
+            --cluster $CLUSTER_NAME \
+            --service $SERVICE_NAME \
+            --task-definition $TASK_DEF_NAME:${{ steps.task-def-rev.outputs.REVISION }} \
+            --region $AWS_REGION
 
-      # Terraform only runs when [infra] is in commit message
+      # Terraform conditional block
       - name: Setup Terraform
         if: contains(github.event.head_commit.message, '[infra]')
         uses: hashicorp/setup-terraform@v1
@@ -53,9 +91,24 @@ jobs:
       - name: Terraform Plan (Scoped to API Gateway only)
         if: contains(github.event.head_commit.message, '[infra]')
         working-directory: infra
-        run: terraform plan -target=aws_api_gateway_method.hello_get -target=aws_api_gateway_integration.hello_integration -target=aws_api_gateway_method_response.hello_response -target=aws_api_gateway_integration_response.hello_integration_response -target=aws_api_gateway_deployment.api_deploy -target=aws_api_gateway_stage.dev -var-file="terraform.tfvars"
+        run: terraform plan \
+          -target=aws_api_gateway_method.hello_get \
+          -target=aws_api_gateway_integration.hello_integration \
+          -target=aws_api_gateway_method_response.hello_response \
+          -target=aws_api_gateway_integration_response.hello_integration_response \
+          -target=aws_api_gateway_deployment.api_deploy \
+          -target=aws_api_gateway_stage.dev \
+          -var-file="terraform.tfvars"
 
       - name: Terraform Apply (Scoped to API Gateway only)
         if: contains(github.event.head_commit.message, '[infra]')
         working-directory: infra
-        run: terraform apply -target=aws_api_gateway_method.hello_get -target=aws_api_gateway_integration.hello_integration -target=aws_api_gateway_method_response.hello_response -target=aws_api_gateway_integration_response.hello_integration_response -target=aws_api_gateway_deployment.api_deploy -target=aws_api_gateway_stage.dev -auto-approve -var-file="terraform.tfvars"
+        run: terraform apply \
+          -target=aws_api_gateway_method.hello_get \
+          -target=aws_api_gateway_integration.hello_integration \
+          -target=aws_api_gateway_method_response.hello_response \
+          -target=aws_api_gateway_integration_response.hello_integration_response \
+          -target=aws_api_gateway_deployment.api_deploy \
+          -target=aws_api_gateway_stage.dev \
+          -auto-approve \
+          -var-file="terraform.tfvars"

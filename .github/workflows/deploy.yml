@@ -1,4 +1,4 @@
-name: Deploy Flask App to ECS (OIDC Role-Based)
+name: Deploy Flask App to ECS (OIDC Role-Based) 
 
 on:
   push:
@@ -10,10 +10,10 @@ permissions:
 
 env:
   AWS_REGION: us-east-2
-  ECR_REPO: 861079279572.dkr.ecr.us-east-2.amazonaws.com/lf-enterprise-api-dev
-  CLUSTER_NAME: lf-enterprise-api-cluster-dev
-  SERVICE_NAME: lf-enterprise-api-task-dev-service-7fmhk9xx
-  TASK_DEF_NAME: lf-enterprise-api-task-dev
+  ECR_REPO: 861079279572.dkr.ecr.us-east-2.amazonaws.com/microservices-api-dev
+  CLUSTER_NAME: microservices-api-cluster-dev
+  SERVICE_NAME: microservices-api-task-dev-service-7fmhk9xx
+  TASK_DEF_NAME: microservices-api-task-dev
 
 jobs:
   deploy:
@@ -35,8 +35,8 @@ jobs:
 
       - name: Build, Tag, and Push Docker Image
         run: |
-          docker build -t lf-enterprise-api-dev ./flask_app
-          docker tag lf-enterprise-api-dev:latest $ECR_REPO:latest
+          docker build -t microservices-api-dev ./flask_app
+          docker tag microservices-api-dev:latest $ECR_REPO:latest
           docker push $ECR_REPO:latest
 
       - name: Get current ECS task definition
@@ -75,7 +75,7 @@ jobs:
             --task-definition $TASK_DEF_NAME:${{ steps.new-rev.outputs.revision }} \
             --region $AWS_REGION
 
-      # Optional Terraform block (runs only if "[infra]" is in the commit message)
+      # Optional Terraform block
       - name: Setup Terraform
         if: contains(github.event.head_commit.message, '[infra]')
         uses: hashicorp/setup-terraform@v1
